@@ -1,0 +1,6 @@
+"0","# remove the invalid 43 trials"
+"0","stay_df_clean <- stay_df %>%"
+"0","  filter("
+"0","    choice1 %in% c(1, 2),"
+"0","    choice2 %in% c(1, 2)"
+"0","  )"

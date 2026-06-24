@@ -1,0 +1,7 @@
+"0","choice1_prop_subj %>%"
+"0","  summarise("
+"0","    mean_prop_choice1_1 = mean(prop_choice1_1),"
+"0","    sd_prop_choice1_1   = sd(prop_choice1_1),"
+"0","    min_prop_choice1_1  = min(prop_choice1_1),"
+"0","    max_prop_choice1_1  = max(prop_choice1_1)"
+"0","  )"

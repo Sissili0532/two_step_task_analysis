@@ -1,0 +1,8 @@
+"0","stay_summary <- stay_analysis %>%"
+"0","  mutate(prev_reward_label = ifelse(prev_reward == 1, ""Rewarded"", ""Unrewarded"")) %>%"
+"0","  group_by(participant_id, prev_reward_label, prev_transition) %>%"
+"0","  summarise("
+"0","    stay_prob = mean(stay),"
+"0","    se = sd(stay) / sqrt(n()),  # standard error"
+"0","    .groups = ""drop"""
+"0","  )"

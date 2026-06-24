@@ -1,0 +1,10 @@
+"0","# Pull one subject"
+"0","test_subj <- stay_df_clean %>%"
+"0","  filter(participant_id == ""CCNP001339"")"
+"0",""
+"0","# Try running Model_fit directly with fixed params"
+"0","test_params <- c(0.5, 0.5, 0.5, 0.5, 5, 5, 0)"
+"0",""
+"0","Model_fit(test_params, test_subj)"
+"1","[1] 196.7919
+"

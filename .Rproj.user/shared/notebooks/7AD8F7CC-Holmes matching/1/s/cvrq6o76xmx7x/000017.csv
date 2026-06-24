@@ -1,0 +1,10 @@
+"0","control_pool <- df_holmes %>%
+  filter(!`CONTROL ID` %in% df_holmes_matched$`CONTROL ID`) %>%
+  select(`CONTROL ID`, `Control Age`, `Sex/Gender...8`, `Race/Ethnicity...9`) %>%
+  filter(!is.na(`Race/Ethnicity...9`))
+"
+"2","G2;H2;Warningh: [38;5;232mThere was 1 warning in `filter()`.[39m
+[38;5;232m[36mℹ[38;5;232m In argument: `!`CONTROL ID` %in% df_holmes_matched$`CONTROL ID``.[39m
+Caused by warning:
+[33m![39m Unknown or uninitialised column: `CONTROL ID`.g
+"

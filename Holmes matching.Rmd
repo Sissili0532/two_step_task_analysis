@@ -1,0 +1,105 @@
+---
+title: "Data matching"
+output: html_document
+date: "2026-06-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+```{r}
+library(lmerTest)
+library(lme4)
+library(tidyr)
+library(ggplot2)
+library(ggnewscale)
+library(dplyr)
+library(tidyr)
+library(broom.mixed)
+library(tidyr)
+library(purrr)
+library(tidyverse)
+library(jsonlite)
+library(nnet)
+library(patchwork)
+library(emmeans)
+```
+
+```{r}
+# install.packages("readxl")
+
+library(readxl)
+
+df_holmes <- read_excel("/Users/sissili/Desktop/Holmes Data/Holmes 01 Matching.xlsx")
+df_holmes_matched <- read_excel("/Users/sissili/Desktop/Holmes Data/Holmes 01 Matched.xlsx")
+
+patients_to_match <- df_holmes %>%
+  filter(`PATIENT ID` %in% need_to_match$`PATIENT ID`) %>%
+  select(`PATIENT ID`, `Patient Age`, `Sex/Gender...3`, `Race/Ethnicity...4`)
+
+```
+
+
+```{r}
+
+set.seed(123)
+
+simulated_matches <- patients_to_match %>%
+  rowwise() %>%
+  mutate(
+    simulated_ID = paste0("SIM_", `PATIENT ID`),
+    sim_gender = `Sex/Gender...3`,
+    sim_age = sample((`Patient Age` - 5):(`Patient Age` + 5), 1),
+    sim_race = `Race/Ethnicity...4`
+  )
+
+simulated_matches
+```
+
+```{r}
+
+df_holmes_tobematched <- read_excel("/Users/sissili/Desktop/Holmes Data/Holmes 01 to_be_matched.xlsx")
+
+unique(df_holmes_tobematched$`Race/Ethnicity`)
+
+```
+```{r}
+library(dplyr)
+
+simulate_race <- function(race) {
+  case_when(
+    race %in% c("Asian", "East Asian") ~ "Asian",
+    race == "Black" ~ "Black",
+    race == "White" ~ "White",
+    race %in% c("Latino", "Hispanic") ~ sample(c("Latino", "Hispanic"), 1),
+    race == "Hispanic / Latino / Asian (half filipino)" ~ sample(c("Latino", "Filipino"), 1),
+    race == "White / Columbian / Italian" ~ sample(c("Columbian", "Italian"), 1),
+    race == "White / Hispanic" ~ "Hispanic",
+    race == "White / puerto rican" ~ "Puerto Rican",
+    race == "Asian / White" ~ "Asian",
+    race == "White / Korean" ~ "KRN",
+    TRUE ~ race  # fallback: keep as is
+  )
+}
+
+set.seed(123)
+
+simulated_controls <- df_holmes_tobematched %>%
+  rowwise() %>%
+  mutate(
+    sim_ID = paste0("SIM_", `PATIENT ID`),
+    sim_gender = `Sex/Gender`,
+    sim_age_gap_2 = sample((`Patient Age` - 2):(`Patient Age` + 2), 1),
+    sim_age_gap_5 = sample((`Patient Age` - 5):(`Patient Age` + 5), 1),
+    sim_race = simulate_race(`Race/Ethnicity`)
+  ) %>%
+  ungroup()
+
+simulated_controls
+```
+

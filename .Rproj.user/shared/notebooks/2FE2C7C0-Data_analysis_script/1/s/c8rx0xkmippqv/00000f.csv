@@ -1,0 +1,8 @@
+"0","# SD and CI"
+"0","indiv_models %>%"
+"0","  filter(term == ""prev_reward:prev_transitionRare"") %>%"
+"0","  mutate("
+"0","    ci_lower = estimate - 1.96 * std.error,"
+"0","    ci_upper = estimate + 1.96 * std.error"
+"0","  ) %>%"
+"0","  select(participant_id, estimate, std.error, ci_lower, ci_upper, p.value)"
