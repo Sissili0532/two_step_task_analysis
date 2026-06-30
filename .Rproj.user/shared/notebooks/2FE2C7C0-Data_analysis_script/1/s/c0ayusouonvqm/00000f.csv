@@ -4,7 +4,7 @@
 "0","if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)"
 "0",""
 "0","# Location of raw txt files"
-"0","data_dir <- ""/Users/sissili/Desktop/Konova Lab/P2_Data_Analysis/CCNP_data_analysis/Data"""
+"0","data_dir <- ""Data"""
 "0",""
 "0","# Find all TwoStep files"
 "0","files <- sort(list.files("

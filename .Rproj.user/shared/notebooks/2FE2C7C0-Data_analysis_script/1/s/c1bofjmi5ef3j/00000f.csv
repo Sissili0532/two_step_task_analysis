@@ -1,3 +1,4 @@
+"0",""
 "0","df_all <- df_all %>%"
 "0","  mutate("
 "0","    trial   = as.numeric(trial),"

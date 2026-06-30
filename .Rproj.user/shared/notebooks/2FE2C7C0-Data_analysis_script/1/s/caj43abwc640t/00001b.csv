@@ -1,4 +1,0 @@
-"0",""
-"0","# df_all %>%"
-"0","#   filter(invalid_trial) %>%"
-"0","#   select(participant_id, trial, choice1, choice2)"

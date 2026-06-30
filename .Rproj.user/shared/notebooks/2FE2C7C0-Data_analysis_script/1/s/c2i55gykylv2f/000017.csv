@@ -1,2 +1,0 @@
-"0",""
-"0","write.csv(coef_table_indiv, file.path(output_dir, ""coef_table_indiv.csv""), row.names = FALSE)"

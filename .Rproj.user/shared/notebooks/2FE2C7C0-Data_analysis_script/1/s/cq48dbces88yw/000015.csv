@@ -1,2 +1,0 @@
-"0",""
-"0","write.csv(indiv_models, file.path(output_dir, ""indiv_models.csv""), row.names = FALSE)"

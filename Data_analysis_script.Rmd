@@ -25,6 +25,7 @@ library(jsonlite)
 library(nnet)
 library(patchwork)
 library(emmeans)
+
 ```
 
 
@@ -55,6 +56,15 @@ df_1679 <- read.delim("Data/TwoStep_CCNP001679_1_28-Apr-2025.txt")
 df_1684 <- read.delim("Data/TwoStep_CCNP001684_1_01-May-2025.txt")
 
 df_1689 <- read.delim("Data/TwoStep_CCNP001689_1_30-Apr-2025.txt")
+
+patient_data_text <- read.csv("Data/Gueguen_01_Subject+Questionnaire+-+Updated_June+24,+2026_12.54.csv")
+
+patient_data_text <- patient_data_text[-c(1, 2), ]
+
+patient_data_num <- read.csv ("Data/Gueguen_01_Subject+Questionnaire+-+Updated_June+24,+2026_12.43.csv") 
+
+patient_data_num <- patient_data_num[-c(1, 2, 3), ]
+
 
 ```
 
@@ -901,4 +911,272 @@ model_fit_results_select <-
 
 model_fit_results_select
 ```
+
+## Parameter Recovery
+
+```{r}
+# get a range of parameters from real fitted results
+
+param_ranges <- model_fit_results %>%
+  summarise(
+    alpha1_min = min(alpha1), alpha1_max = max(alpha1),
+    alpha2_min = min(alpha2), alpha2_max = max(alpha2),
+    lambda_min = min(lambda), lambda_max = max(lambda),
+    w_min      = min(w),      w_max      = max(w),
+    beta1_min  = min(beta1),  beta1_max  = max(beta1),
+    beta2_min  = min(beta2),  beta2_max  = max(beta2),
+    p_min      = min(p),      p_max      = max(p)
+  )
+
+
+```
+
+```{r}
+# Step 2 — sample true params within real ranges
+set.seed(123)
+n_sim <- 10  
+
+true_params <- data.frame(
+  sim_id = 1:n_sim,
+  alpha1 = runif(n_sim, param_ranges$alpha1_min, param_ranges$alpha1_max),
+  alpha2 = runif(n_sim, param_ranges$alpha2_min, param_ranges$alpha2_max),
+  lambda = runif(n_sim, param_ranges$lambda_min, param_ranges$lambda_max),
+  w      = runif(n_sim, param_ranges$w_min,      param_ranges$w_max),
+  beta1  = runif(n_sim, param_ranges$beta1_min,  param_ranges$beta1_max),
+  beta2  = runif(n_sim, param_ranges$beta2_min,  param_ranges$beta2_max),
+  p      = runif(n_sim, param_ranges$p_min,      param_ranges$p_max)
+)
+
+```
+
+```{r}
+# Step 3 — preallocate recovered params
+recovered_params <- data.frame(
+  sim_id     = 1:n_sim,
+  pid        = NA_character_,
+  rec_alpha1 = NA_real_,
+  rec_alpha2 = NA_real_,
+  rec_lambda = NA_real_,
+  rec_w      = NA_real_,
+  rec_beta1  = NA_real_,
+  rec_beta2  = NA_real_,
+  rec_p      = NA_real_
+)
+
+```
+
+```{r}
+# Step 4 — recovery loop
+set.seed(123)
+pids <- unique(stay_df_clean$participant_id)
+
+for (i in 1:n_sim) {
+  
+  # Sample a real subject's trial structure
+  sampled_pid <- sample(pids, 1)
+  
+  template_trials <- stay_df_clean %>%
+    filter(participant_id == sampled_pid) %>%
+    arrange(trial) %>%
+    select(choice1, choice2, state, won)
+  
+  # Simulate fake choices using true params + real trial structure
+  true_p <- c(
+    true_params$alpha1[i],
+    true_params$alpha2[i],
+    true_params$lambda[i],
+    true_params$w[i],
+    true_params$beta1[i],
+    true_params$beta2[i],
+    true_params$p[i]
+  )
+  
+  fake_data <- simulate_subject(true_p, n_trials = nrow(template_trials))
+  
+  # Fit model to fake choices → recover params
+  recovered <- fit_subject(fake_data)
+  
+  recovered_params[i, 2:9] <- c(
+  sampled_pid,
+  recovered$alpha1, recovered$alpha2, recovered$lambda,
+  recovered$w, recovered$beta1, recovered$beta2, recovered$p
+)
+  
+  cat("\nCompleted sim", i, "of", n_sim)  # progress tracker
+}
+
+recovery_df <- cbind(true_params, recovered_params[, -1])
+
+recovery_df <- recovery_df %>%
+  mutate(across(starts_with("rec_"), as.numeric))
+
+# Verify it worked
+str(recovery_df)
+```
+
+```{r}
+
+plot_recovery <- function(true_col, rec_col, param_name) {
+  ggplot(recovery_df, aes(x = .data[[true_col]], 
+                           y = .data[[rec_col]])) +
+    geom_point(alpha = 0.6) +
+    geom_abline(slope = 1, intercept = 0,
+                color = "red", linetype = "dashed") +
+    labs(x = "True", y = "Recovered", title = param_name) +
+    theme_classic()
+}
+
+p1 <- plot_recovery("alpha1", "rec_alpha1", "alpha1")
+p2 <- plot_recovery("alpha2", "rec_alpha2", "alpha2")
+p3 <- plot_recovery("lambda", "rec_lambda", "lambda")
+p4 <- plot_recovery("w",      "rec_w",      "w")
+p5 <- plot_recovery("beta1",  "rec_beta1",  "beta1")
+p6 <- plot_recovery("beta2",  "rec_beta2",  "beta2")
+p7 <- plot_recovery("p",      "rec_p",      "p")
+
+(p1 | p2 | p3 | p4) / (p5 | p6 | p7)
+```
+
+### Quantify the parameter recovery
+
+```{r}
+recovery_cors <- recovery_df %>%
+  summarise(
+    r_alpha1 = cor(alpha1, rec_alpha1, use = "complete.obs"),
+    r_alpha2 = cor(alpha2, rec_alpha2, use = "complete.obs"),
+    r_lambda = cor(lambda, rec_lambda, use = "complete.obs"),
+    r_w      = cor(w,      rec_w,      use = "complete.obs"),
+    r_beta1  = cor(beta1,  rec_beta1,  use = "complete.obs"),
+    r_beta2  = cor(beta2,  rec_beta2,  use = "complete.obs"),
+    r_p      = cor(p,      rec_p,      use = "complete.obs")
+  )
+
+recovery_cors
+```
+
+## Patient Info
+### Demographic
+
+```{r}
+# Get participant IDs from df_all
+participant_ids <- df_all$participant_id
+
+# Filter patient_data_text by matching Q40 (participant ID column)
+patient_data_text_filtered <- patient_data_text[patient_data_text$Q40 %in% participant_ids, ]
+
+patient_data_text_selected <- patient_data_text_filtered %>%
+  select(
+    Q45,   # Date of Birth
+    Q47,   # Gender identity
+    Q50,   # Race
+    Q56,   # Marital status
+    Q242,  # Education
+    Q64    # Employment status
+  ) %>%
+  mutate(
+    Age            = floor(interval(mdy(Q45), Sys.Date()) / years(1)),
+    Gender         = factor(Q47),
+    Race           = factor(Q50),
+    Marital_Status = factor(Q56),
+    Education      = factor(Q242),
+    Employment     = factor(Q64)
+  ) %>%
+  select(-Q45, -Q47, -Q50, -Q56, -Q242, -Q64) %>%
+  filter(!is.na(Age), !is.na(Gender), !is.na(Race), 
+         !is.na(Marital_Status), !is.na(Education), !is.na(Employment)) %>%
+mutate(across(where(is.factor), droplevels))
+```
+
+```{r}
+# Age row
+age_row <- data.frame(
+  Characteristic = "Age (years), M (SD)",
+  Value = paste0(round(mean(patient_data_text_selected$Age, na.rm = TRUE), 1),
+                 " (", round(sd(patient_data_text_selected$Age, na.rm = TRUE), 1), ")")
+)
+
+# Categorical rows
+cat_vars <- c("Gender", "Race", "Marital_Status", "Education", "Employment")
+
+cat_rows <- do.call(rbind, lapply(cat_vars, function(var) {
+  n   <- table(patient_data_text_selected[[var]], useNA = "no")
+  pct <- round(prop.table(n) * 100, 1)
+  data.frame(
+    Characteristic = names(n),
+    Value          = paste0(as.vector(n), " (", as.vector(pct), "%)")
+  )
+}))
+
+# Combine and print
+demo_table <- rbind(age_row, cat_rows)
+print(demo_table, row.names = FALSE)
+```
+
+### AUD severity 
+
+```{r}
+# Filter to matching participants
+patient_data_num_filtered <- patient_data_num[patient_data_num$Q40 %in% participant_ids, ]
+
+# Extract AUDIT columns
+audit_data <- patient_data_num_filtered %>%
+  select(Q40, Q109, Q110, Q111, Q112, Q113, Q114, Q115, Q116, Q117, Q118)
+
+audit_data <- patient_data_num_filtered %>%
+  select(Q40, Q109, Q110, Q111, Q112, Q113, Q114, Q115, Q116, Q117, Q118) %>%
+  mutate(across(Q109:Q118, as.numeric)) %>%
+  mutate(AUDIT_Total = rowSums(across(Q109:Q118), na.rm = TRUE))
+
+audit_data <- audit_data[!duplicated(audit_data$Q40), ]
+
+audit_data
+```
+
+### Random Effect & Audit
+
+```{r}
+
+cor1 <- cor.test(plot_data$AUDIT_Total, plot_data$prev_reward_re, method = "pearson")
+
+label1 <- sprintf("r = %.2f, p = %.3f", cor1$estimate, cor1$p.value)
+
+p1 <- ggplot(plot_data, aes(x = AUDIT_Total, y = prev_reward_re)) +
+  geom_point(size = 3, alpha = 0.7, color = "#2196F3") +
+  geom_smooth(method = "lm", se = TRUE, color = "#0D47A1", fill = "#90CAF9") +
+  annotate("text", x = Inf, y = Inf, label = label1,
+           hjust = 1.1, vjust = 1.5, size = 4.5) +
+  labs(
+    title = "Model-Free vs Alcohol Use",
+    x = "AUDIT Score",
+    y = "Prev_reward_re"
+  ) +
+  theme_classic(base_size = 13)
+
+p1
+
+```
+
+```{r}
+cor2 <- cor.test(plot_data$AUDIT_Total, plot_data$interaction_re, method = "pearson")
+
+label2 <- sprintf("r = %.2f, p = %.3f", cor2$estimate, cor2$p.value)
+
+p2 <- ggplot(plot_data, aes(x = AUDIT_Total, y = interaction_re)) +
+  geom_point(size = 3, alpha = 0.7, color = "#E91E63") +
+  geom_smooth(method = "lm", se = TRUE, color = "#880E4F", fill = "#F48FB1") +
+  annotate("text", x = Inf, y = Inf, label = label2,
+           hjust = 1.1, vjust = 1.5, size = 4.5) +
+  labs(
+    title = "Model-Based vs Alcohol Use",
+    x = "AUDIT Score",
+    y = "Interaction_re"
+  ) +
+  theme_classic(base_size = 13)
+
+p2
+
+```
+
+
+
 
